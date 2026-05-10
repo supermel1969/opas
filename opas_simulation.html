@@ -1,0 +1,2075 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPAS — Simulador de Producción de Lentes v2</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d47;
+    --accent: #00c6ff;
+    --accent2: #7c3aed;
+    --accent3: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --glass: rgba(255,255,255,0.04);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background:
+      radial-gradient(ellipse 600px 400px at 10% 20%, rgba(0,198,255,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 500px 400px at 90% 80%, rgba(124,58,237,0.06) 0%, transparent 70%);
+    pointer-events:none;
+    z-index:0;
+  }
+  header {
+    position:relative; z-index:10;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 32px;
+    border-bottom:1px solid var(--border);
+    background:rgba(10,14,26,0.8);
+    backdrop-filter:blur(12px);
+  }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-icon {
+    width:38px; height:38px;
+    background:linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px;
+  }
+  .logo-text { font-size:22px; font-weight:800; letter-spacing:-0.5px; }
+  .logo-sub { font-size:11px; color:var(--muted); font-family:'IBM Plex Mono',monospace; letter-spacing:2px; }
+  .header-right { display:flex; gap:12px; align-items:center; }
+  .status-pill {
+    display:flex; align-items:center; gap:6px;
+    padding:6px 14px;
+    background:rgba(16,185,129,0.1);
+    border:1px solid rgba(16,185,129,0.3);
+    border-radius:999px;
+    font-size:12px; font-family:'IBM Plex Mono',monospace; color:var(--accent3);
+  }
+  .dot { width:7px;height:7px;border-radius:50%;background:var(--accent3);animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+  .container { position:relative; z-index:1; max-width:1900px; margin:0 auto; padding:20px 28px; }
+
+  /* Tabs */
+  .tab-nav {
+    display:flex; gap:0; margin-bottom:20px;
+    border-bottom:1px solid var(--border);
+  }
+  .tab-btn {
+    padding:12px 24px;
+    background:transparent;
+    border:none; border-bottom:2px solid transparent;
+    color:var(--muted);
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:14px; font-weight:600;
+    cursor:pointer;
+    transition:all .2s;
+    white-space:nowrap;
+  }
+  .tab-btn:hover { color:var(--text); }
+  .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* TOP bar */
+  .top-bar {
+    display:grid;
+    grid-template-columns: 440px 1fr;
+    gap:16px; margin-bottom:20px; align-items:stretch;
+  }
+  .top-bar-left { display:flex; flex-direction:column; gap:12px; }
+  .run-panel {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:16px; padding:20px 22px;
+    display:flex; align-items:center; flex:1;
+  }
+  .kpi-bar { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .kpi-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:14px 16px;
+    position:relative; overflow:hidden;
+  }
+  .kpi-card::before {
+    content:''; position:absolute; top:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .kpi-label { font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-bottom:6px; }
+  .kpi-value { font-size:36px;font-weight:800;letter-spacing:-1px; }
+  .kpi-sub { font-size:12px;color:var(--muted);margin-top:3px; }
+  .kpi-accent { color:var(--accent); }
+  .kpi-warn { color:var(--warn); }
+  .kpi-danger { color:var(--danger); }
+  .kpi-green { color:var(--accent3); }
+
+  .main-grid { display:grid; grid-template-columns:1fr; gap:20px; }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+  .panel-header {
+    padding:18px 24px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .panel-title { font-size:15px; font-weight:700; letter-spacing:-0.3px; }
+  .panel-body { padding:24px; }
+
+  /* Station table */
+  .pipeline-scroll { display:flex; flex-direction:column; gap:0; }
+  .station-row {
+    display:grid;
+    grid-template-columns: 32px 1fr 120px 120px 100px 80px;
+    align-items:center; gap:16px;
+    padding:14px 20px;
+    border-bottom:1px solid var(--border);
+    transition:background .15s;
+  }
+  .station-row:hover { background:var(--glass); }
+  .station-row:last-child { border-bottom:none; }
+  .station-row.bottleneck { background:rgba(239,68,68,0.05); border-left:3px solid var(--danger); }
+  .station-row.alert-station { background:rgba(245,158,11,0.05); border-left:3px solid var(--warn); }
+  .alert-station .station-num { background:rgba(245,158,11,0.15); border-color:var(--warn); color:var(--warn); }
+  .station-num {
+    width:28px;height:28px;border-radius:50%;
+    background:var(--surface2);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--muted);
+  }
+  .bottleneck .station-num { background:rgba(239,68,68,0.15);border-color:var(--danger);color:var(--danger); }
+  .station-name { font-size:14px; font-weight:600; }
+  .station-detail { font-size:12px; color:var(--muted); margin-top:2px; font-family:'IBM Plex Mono',monospace; }
+  .station-time-col { display:flex; align-items:center; gap:8px; }
+  .time-input {
+    width:62px; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-family:'IBM Plex Mono',monospace;
+    font-size:14px; padding:5px 8px; text-align:center; transition:border-color .2s;
+  }
+  .time-input:focus { outline:none; border-color:var(--accent); }
+  .time-unit { font-size:11px; color:var(--muted); }
+  .units-col { display:flex; align-items:center; gap:6px; }
+  .unit-btn {
+    width:22px;height:22px;border-radius:6px;border:1px solid var(--border);
+    background:var(--surface2);color:var(--text);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:700;transition:all .15s;line-height:1;
+  }
+  .unit-btn:hover { background:var(--accent);border-color:var(--accent);color:#000; }
+  .unit-count { font-size:14px;font-weight:700;font-family:'IBM Plex Mono',monospace;min-width:18px;text-align:center; }
+  .cap-val { font-size:14px;font-weight:700;font-family:'IBM Plex Mono',monospace; }
+  .cap-sub { font-size:11px;color:var(--muted); }
+  .util-bar-wrap { height:6px;background:var(--surface2);border-radius:3px;margin-top:4px; }
+  .util-bar { height:100%;border-radius:3px;transition:width .4s ease; }
+  .tag { padding:4px 11px;border-radius:6px;font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;white-space:nowrap; }
+  .tag-ok { background:rgba(16,185,129,0.12);color:var(--accent3);border:1px solid rgba(16,185,129,0.25); }
+  .tag-warn { background:rgba(245,158,11,0.12);color:var(--warn);border:1px solid rgba(245,158,11,0.25); }
+  .tag-danger { background:rgba(239,68,68,0.12);color:var(--danger);border:1px solid rgba(239,68,68,0.25); }
+  .tag-neutral { background:var(--surface2);color:var(--muted);border:1px solid var(--border); }
+  .col-headers {
+    display:grid; grid-template-columns:32px 1fr 120px 120px 100px 80px;
+    gap:16px; padding:10px 20px;
+    border-bottom:1px solid var(--border); background:var(--surface2);
+  }
+  .col-h { font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:'IBM Plex Mono',monospace;font-weight:600; }
+
+  /* Controls */
+  .run-title { font-size:13px;font-weight:700;margin-bottom:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-family:'IBM Plex Mono',monospace; }
+  .control-row { margin-bottom:12px; }
+  .control-label { font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-bottom:6px;display:flex;justify-content:space-between; }
+  .control-val { color:var(--accent);font-weight:700; }
+  input[type=range] { width:100%;appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none;cursor:pointer; }
+  input[type=range]::-webkit-slider-thumb { appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 0 3px rgba(0,198,255,0.15); }
+  .btn-row { display:flex;gap:8px;margin-top:14px; }
+  .run-btn {
+    flex:1;padding:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none;border-radius:10px;color:#fff;font-family:'IBM Plex Sans',sans-serif;
+    font-size:13px;font-weight:700;cursor:pointer;transition:opacity .2s,transform .1s;
+    letter-spacing:.5px;white-space:nowrap;
+  }
+  .run-btn:hover { opacity:.9;transform:translateY(-1px); }
+  .run-btn:active { transform:translateY(0); }
+  .run-btn:disabled { opacity:.35;cursor:not-allowed;transform:none; }
+  .reset-btn {
+    padding:12px 16px;background:transparent;border:1px solid var(--border);
+    border-radius:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;
+    font-size:13px;cursor:pointer;transition:all .15s;white-space:nowrap;
+  }
+  .reset-btn:hover { border-color:var(--accent);color:var(--accent); }
+
+  /* BN Analysis */
+  .analysis-panel {
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;
+  }
+  .analysis-title { font-size:13px;font-weight:700;margin-bottom:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-family:'IBM Plex Mono',monospace;flex-shrink:0; }
+  .bn-grid { display:grid;grid-template-columns:repeat(5,1fr);gap:8px;flex:1;align-content:start; }
+  .bn-item { display:flex;flex-direction:column;gap:0;border-radius:12px;overflow:hidden;border:1px solid var(--border);position:relative;transition:transform .15s,box-shadow .15s; }
+  .bn-item:hover { transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.3); }
+  .bn-item-accent { height:3px;width:100%; }
+  .bn-item-body { padding:10px 12px 8px;display:flex;flex-direction:column;gap:6px;flex:1; }
+  .bn-item-top { display:flex;align-items:flex-start;justify-content:space-between;gap:4px; }
+  .bn-rank { font-size:9px;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px; }
+  .bn-icon-name { display:flex;align-items:center;gap:5px;flex:1;min-width:0; }
+  .bn-icon { font-size:16px;flex-shrink:0; }
+  .bn-info { flex:1;min-width:0; }
+  .bn-name { font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .bn-stat { font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px; }
+  .bn-pct-big { font-size:20px;font-weight:800;font-family:'IBM Plex Mono',monospace;letter-spacing:-1px;line-height:1; }
+  .bn-bar-row { display:flex;align-items:center;gap:6px;margin-top:2px; }
+  .bn-bar-wrap { flex:1;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden; }
+  .bn-bar { height:100%;border-radius:2px;transition:width .4s ease; }
+  .bn-limitante-badge { font-size:8px;font-family:'IBM Plex Mono',monospace;letter-spacing:.3px;padding:2px 5px;border-radius:4px;display:inline-block;margin-top:3px;font-weight:700; }
+
+  /* Hourly distribution table */
+  .dist-panel { background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden; }
+  .dist-inner { padding:20px; }
+  .dist-grid { display:grid; gap:8px; }
+  .dist-row {
+    display:grid; grid-template-columns: 130px 1fr 68px 18px 68px 90px;
+    align-items:center; gap:8px;
+    padding:8px 12px; border-radius:10px;
+    background:var(--surface2); border:1px solid var(--border);
+    transition:background .15s;
+  }
+  .dist-row:hover { background:rgba(0,198,255,0.05); border-color:rgba(0,198,255,0.2); }
+  .dist-hour { font-size:12px; font-weight:700; font-family:'IBM Plex Mono',monospace; color:var(--accent); }
+  .dist-pct-wrap { display:flex; align-items:center; gap:10px; }
+  .dist-pct-bar-bg { flex:1; height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .dist-pct-bar { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .4s; }
+  .dist-pct-input {
+    width:68px; background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-family:'IBM Plex Mono',monospace;
+    font-size:13px; padding:5px 8px; text-align:right; transition:border-color .2s;
+  }
+  .dist-pct-input:focus { outline:none; border-color:var(--accent); }
+  .dist-units { font-size:12px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-align:right; }
+  .dist-units-info {
+    font-size:12px; color:var(--accent3); font-family:'IBM Plex Mono',monospace;
+    text-align:right; background:rgba(16,185,129,0.08);
+    border:1px solid rgba(16,185,129,0.2); border-radius:6px;
+    padding:3px 8px; font-weight:700; cursor:default; white-space:nowrap;
+  }
+  .dist-total-row { display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding:10px 12px; border-radius:10px; background:rgba(0,198,255,0.06); border:1px solid rgba(0,198,255,0.2); }
+  .dist-total-label { font-size:12px; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+  .dist-total-val { font-size:14px; font-weight:700; font-family:'IBM Plex Mono',monospace; }
+  .dist-total-val.ok { color:var(--accent3); }
+  .dist-total-val.err { color:var(--danger); }
+  /* Aligned totals row under dist columns */
+  .dist-totals-row {
+    display:grid; grid-template-columns: 130px 1fr 68px 18px 68px 90px;
+    align-items:center; gap:8px;
+    padding:8px 12px; border-radius:10px; margin-top:6px;
+    background:rgba(0,198,255,0.05); border:1px solid rgba(0,198,255,0.18);
+  }
+  .dist-total-spacer { /* empty cols */ }
+  .dist-total-pct-col {
+    font-size:14px; font-weight:800; font-family:'IBM Plex Mono',monospace;
+    text-align:right; padding-right:0;
+  }
+  .dist-total-pct-col.ok { color:var(--accent3); }
+  .dist-total-pct-col.err { color:var(--danger); }
+  .dist-total-pct-sign { font-size:12px; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+  .dist-total-pct-hint { font-size:9px; color:var(--muted); font-family:'IBM Plex Mono',monospace; margin-top:2px; }
+  .dist-total-units-col {
+    font-size:14px; font-weight:800; font-family:'IBM Plex Mono',monospace;
+    color:var(--accent3); text-align:right; padding:3px 8px;
+    background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25);
+    border-radius:6px;
+  }
+
+  /* Hour chart */
+  .hour-chart { position:relative; height:320px; padding:0 4px; margin-top:8px; overflow:visible; }
+  .hour-chart-inner { display:flex; align-items:flex-end; gap:6px; height:100%; width:100%; position:relative; }
+  .hour-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; }
+  .hour-bar { width:100%; border-radius:4px 4px 0 0; background:linear-gradient(180deg,var(--accent),var(--accent2)); transition:height .4s ease; min-height:2px; cursor:default; }
+  .hour-bar-label { font-size:9px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-align:center; white-space:nowrap; }
+  .hour-bar-pct { font-size:9px; color:var(--accent); font-family:'IBM Plex Mono',monospace; text-align:center; font-weight:700; }
+  /* Trend line SVG overlay */
+  .hour-chart-svg {
+    position:absolute; top:0; left:0; width:100%; height:calc(100% - 32px);
+    pointer-events:none; overflow:visible;
+  }
+  /* Polynomial equation box */
+  .poly-eq-box {
+    margin-top:14px; padding:14px 18px;
+    background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25);
+    border-radius:12px; font-family:'IBM Plex Mono',monospace;
+  }
+  .poly-eq-title { font-size:10px; color:var(--danger); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .poly-eq-title::before { content:''; display:inline-block; width:24px; height:2px; border-top:2px dashed var(--danger); }
+  .poly-eq-formula { font-size:14px; font-weight:700; color:var(--text); margin-bottom:6px; letter-spacing:0.3px; }
+  .poly-eq-desc { font-size:11px; color:var(--muted); line-height:1.6; }
+
+  /* Start hour input */
+  .start-hour-row { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .start-hour-label { font-size:12px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:1px; }
+  .start-hour-input {
+    width:80px; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-family:'IBM Plex Mono',monospace;
+    font-size:14px; padding:6px 10px; text-align:center; transition:border-color .2s;
+  }
+  .start-hour-input:focus { outline:none; border-color:var(--accent); }
+  .norm-btn {
+    padding:6px 14px; background:rgba(0,198,255,0.1); border:1px solid rgba(0,198,255,0.3);
+    border-radius:8px; color:var(--accent); font-family:'IBM Plex Mono',monospace;
+    font-size:11px; cursor:pointer; transition:all .15s;
+  }
+  .norm-btn:hover { background:rgba(0,198,255,0.2); }
+
+  /* Hourly results table */
+  .hourly-table { width:100%; border-collapse:collapse; margin-top:16px; }
+  .hourly-table th { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-family:'IBM Plex Mono',monospace; padding:8px 12px; border-bottom:1px solid var(--border); text-align:left; background:var(--surface2); }
+  .hourly-table td { font-size:12px; font-family:'IBM Plex Mono',monospace; padding:8px 12px; border-bottom:1px solid rgba(30,45,71,0.5); }
+  .hourly-table tr:hover td { background:var(--glass); }
+  .h-ok { color:var(--accent3); }
+  .h-warn { color:var(--warn); }
+  .h-danger { color:var(--danger); }
+
+  /* Flow */
+  .flow-panel { background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:20px; }
+  .flow-inner { padding:20px;overflow-x:auto; }
+  .flow-diagram { display:flex;align-items:center;gap:0;min-width:900px; }
+  .flow-node { flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px;width:90px; }
+  .flow-box {
+    width:72px;height:52px;border-radius:10px;border:2px solid var(--border);
+    background:var(--surface2);display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:3px;transition:all .3s;position:relative;cursor:default;
+  }
+  .flow-box.active { border-color:var(--accent);background:rgba(0,198,255,0.08); }
+  .flow-box.bottleneck-node { border-color:var(--danger)!important;background:rgba(239,68,68,0.08)!important; }
+  .flow-box.bottleneck-node .flow-icon { color:var(--danger); }
+  .flow-icon { font-size:18px; }
+  .flow-time { font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--muted); }
+  .flow-label { font-size:9px;color:var(--muted);text-align:center;max-width:80px;line-height:1.3; }
+  .flow-arrow { width:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--border);font-size:16px;margin-top:-12px; }
+  .flow-arrow.flow-active { color:var(--accent); }
+  @keyframes flowAnim { 0%{opacity:.3}50%{opacity:1}100%{opacity:.3} }
+  .flow-dot { width:6px;height:6px;border-radius:50%;background:var(--accent);position:absolute;top:-3px;right:-3px;animation:flowAnim 1.5s infinite; }
+  .flow-dot.d2 { animation-delay:.5s; }
+  .flow-dot.d3 { animation-delay:1s; }
+
+  /* Log */
+  .log-panel { background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:20px; }
+  .log-body { padding:16px 20px;max-height:200px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.8;color:var(--muted); }
+  .log-entry { display:flex;gap:12px; }
+  .log-time { color:var(--accent2);flex-shrink:0; }
+  .log-msg {}
+  .log-msg.success { color:var(--accent3); }
+  .log-msg.warn { color:var(--warn); }
+  .log-msg.danger { color:var(--danger); }
+  .log-msg.info { color:var(--accent); }
+
+  /* Toast */
+  .toast-wrap { position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none; }
+  .toast { padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;animation:slideIn .3s ease;pointer-events:none;max-width:360px; }
+  @keyframes slideIn { from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1} }
+  .toast-info { background:#1a2235;border:1px solid var(--accent);color:var(--accent); }
+  .toast-warn { background:#1a1a10;border:1px solid var(--warn);color:var(--warn); }
+
+  /* Share button */
+  .share-btn { display:flex;align-items:center;gap:6px;padding:7px 16px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.35);border-radius:8px;color:var(--accent2);font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;letter-spacing:.3px; }
+  .share-btn:hover { background:rgba(124,58,237,0.22);border-color:var(--accent2); }
+
+  /* Modal */
+  .modal-overlay { position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s; }
+  .modal-overlay.open { opacity:1;pointer-events:all; }
+  .modal-box { background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px 32px;width:540px;max-width:92vw;position:relative;box-shadow:0 24px 80px rgba(0,0,0,0.5);transform:translateY(16px);transition:transform .25s; }
+  .modal-overlay.open .modal-box { transform:translateY(0); }
+  .modal-title { font-size:16px;font-weight:700;margin-bottom:6px; }
+  .modal-sub { font-size:12px;color:var(--muted);margin-bottom:22px;font-family:'IBM Plex Mono',monospace; }
+  .modal-option { display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;margin-bottom:12px;transition:all .15s; }
+  .modal-option:hover { border-color:var(--accent);background:rgba(0,198,255,0.05); }
+  .modal-option.selected { border-color:var(--accent);background:rgba(0,198,255,0.08); }
+  .modal-option-icon { font-size:22px;flex-shrink:0;margin-top:2px; }
+  .modal-option-title { font-size:13px;font-weight:700;margin-bottom:3px; }
+  .modal-option-desc { font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;line-height:1.5; }
+  /* Share divider */
+  .share-divider { display:flex;align-items:center;gap:12px;margin:18px 0 14px; }
+  .share-divider-line { flex:1;height:1px;background:var(--border); }
+  .share-divider-text { font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;white-space:nowrap; }
+  /* Share channel buttons */
+  .share-channels { display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:4px; }
+  .share-channel-btn {
+    display:flex;flex-direction:column;align-items:center;gap:7px;
+    padding:14px 10px;border-radius:12px;border:1px solid var(--border);
+    background:var(--surface2);cursor:pointer;transition:all .18s;
+    font-family:'IBM Plex Sans',sans-serif;
+  }
+  .share-channel-btn:hover { transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.3); }
+  .share-channel-btn .sch-icon { font-size:26px;line-height:1; }
+  .share-channel-btn .sch-label { font-size:11px;font-weight:700;letter-spacing:.3px; }
+  .share-channel-btn .sch-sub { font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-align:center;line-height:1.4; }
+  .sch-copy { border-color:rgba(0,198,255,0.35);color:var(--accent); }
+  .sch-copy:hover { border-color:var(--accent);background:rgba(0,198,255,0.10); }
+  .sch-whatsapp { border-color:rgba(37,211,102,0.35);color:#25d366; }
+  .sch-whatsapp:hover { border-color:#25d366;background:rgba(37,211,102,0.08); }
+  .sch-outlook { border-color:rgba(0,120,212,0.35);color:#0078d4; }
+  .sch-outlook:hover { border-color:#0078d4;background:rgba(0,120,212,0.08); }
+  .modal-actions { display:flex;gap:10px;margin-top:18px; }
+  .modal-confirm { flex:1;padding:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s; }
+  .modal-confirm:hover { opacity:.88; }
+  .modal-cancel { padding:11px 20px;background:transparent;border:1px solid var(--border);border-radius:9px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:13px;cursor:pointer;transition:all .15s; }
+  .modal-cancel:hover { border-color:var(--accent);color:var(--accent); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width:6px;height:6px; }
+  ::-webkit-scrollbar-track { background:var(--surface2); }
+  ::-webkit-scrollbar-thumb { background:var(--border);border-radius:3px; }
+  ::-webkit-scrollbar-thumb:hover { background:var(--muted); }
+
+  .badge-new { background:rgba(124,58,237,0.15);color:var(--accent2);border:1px solid rgba(124,58,237,0.3);border-radius:6px;font-size:9px;font-family:'IBM Plex Mono',monospace;padding:2px 7px;letter-spacing:.5px; }
+  .section-sep { height:1px;background:var(--border);margin:24px 0; }
+
+  /* ── FLOOR VIEW (Tab 2) ── */
+  #floorTab { padding:0; }
+  .floor-controls {
+    display:flex; align-items:center; gap:16px; padding:16px 20px;
+    background:var(--surface); border-bottom:1px solid var(--border); flex-wrap:wrap;
+  }
+  .floor-clock {
+    font-size:28px; font-weight:800; font-family:'IBM Plex Mono',monospace;
+    color:var(--accent); min-width:90px;
+  }
+  .floor-hour-label { font-size:11px; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+  .floor-btn {
+    padding:9px 20px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none; border-radius:10px; color:#fff; font-size:13px; font-weight:700;
+    cursor:pointer; transition:opacity .2s; font-family:'IBM Plex Sans',sans-serif;
+  }
+  .floor-btn:hover { opacity:.88; }
+  .floor-btn.secondary { background:transparent; border:1px solid var(--border); color:var(--muted); }
+  .floor-btn.secondary:hover { border-color:var(--accent); color:var(--accent); }
+  .floor-progress-wrap { flex:1; min-width:160px; }
+  .floor-progress-label { font-size:10px; color:var(--muted); font-family:'IBM Plex Mono',monospace; margin-bottom:4px; }
+  .floor-progress-bar-bg { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .floor-progress-bar { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px; transition:width .6s ease; width:0%; }
+  .floor-intake-counter {
+    display:flex; flex-direction:column; align-items:center;
+    padding:8px 16px; background:rgba(0,198,255,0.08); border:1px solid rgba(0,198,255,0.3);
+    border-radius:10px;
+  }
+  .floor-intake-num { font-size:24px; font-weight:800; font-family:'IBM Plex Mono',monospace; color:var(--accent); line-height:1; }
+  .floor-intake-lbl { font-size:9px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
+
+  .floor-canvas-wrap {
+    position:relative; overflow:auto;
+    background:var(--bg); min-height:500px;
+    padding:30px 30px 40px;
+  }
+  /* Station boxes on floor */
+  .floor-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap:20px;
+    max-width:1400px;
+    margin:0 auto;
+  }
+  .floor-station {
+    background:var(--surface);
+    border:2px solid var(--border);
+    border-radius:16px;
+    padding:16px;
+    display:flex; flex-direction:column; gap:8px;
+    position:relative;
+    transition:border-color .3s, background .3s, box-shadow .3s;
+  }
+  .floor-station.active-station { border-color:var(--accent); background:rgba(0,198,255,0.06); box-shadow:0 0 20px rgba(0,198,255,0.15); }
+  .floor-station.overload-station {
+    border-color:var(--danger)!important;
+    background:rgba(239,68,68,0.12)!important;
+    box-shadow:0 0 30px rgba(239,68,68,0.3)!important;
+    animation:overloadPulse 0.6s infinite;
+  }
+  @keyframes overloadPulse { 0%,100%{box-shadow:0 0 20px rgba(239,68,68,0.3)} 50%{box-shadow:0 0 40px rgba(239,68,68,0.6)} }
+  .floor-station-icon { font-size:28px; }
+  .floor-station-name { font-size:14px; font-weight:700; }
+  .floor-station-detail { font-size:10px; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+  .floor-station-cap-row { display:flex; align-items:center; justify-content:space-between; }
+  .floor-station-processed {
+    font-size:22px; font-weight:800; font-family:'IBM Plex Mono',monospace;
+    color:var(--accent3);
+    transition:color .3s;
+  }
+  .floor-station-processed.overload { color:var(--danger); }
+  .floor-station-cap-label { font-size:10px; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+  .floor-station-bar-bg { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .floor-station-bar { height:100%; background:var(--accent3); border-radius:2px; transition:width .4s, background .3s; }
+  .floor-station-bar.overload-bar { background:var(--danger); }
+  .floor-station-bar.warn-bar { background:var(--warn); }
+  .floor-station-hour-units {
+    font-size:11px; color:var(--muted); font-family:'IBM Plex Mono',monospace;
+    display:flex; justify-content:space-between;
+  }
+  .overload-badge {
+    display:none; position:absolute; top:-10px; right:-10px;
+    background:var(--danger); color:#fff; border-radius:999px;
+    font-size:10px; font-weight:800; padding:3px 8px;
+    font-family:'IBM Plex Mono',monospace; letter-spacing:.5px;
+    animation:slideIn .3s ease;
+    box-shadow:0 2px 12px rgba(239,68,68,0.5);
+  }
+  .floor-station.overload-station .overload-badge { display:block; }
+
+  /* Moving unit dots */
+  .unit-dot {
+    position:absolute;
+    width:10px; height:10px;
+    border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+    pointer-events:none;
+    transition:none;
+    z-index:100;
+  }
+
+  /* Intake arrow */
+  /* ── Floor IO top row ── */
+  .floor-io-row {
+    display:flex; align-items:center; justify-content:center;
+    gap:0; margin-bottom:28px;
+    max-width:1400px; margin-left:auto; margin-right:auto;
+  }
+  .floor-io-side {
+    width:140px; flex-shrink:0;
+    font-size:11px; color:var(--muted); font-family:'IBM Plex Mono',monospace;
+    line-height:1.5; text-align:center;
+  }
+  .floor-io-side-left { text-align:right; padding-right:12px; }
+  .floor-io-side-right { text-align:left; padding-left:12px; }
+  .floor-io-side-text { opacity:0.75; }
+  .floor-io-connector {
+    position:relative; width:160px; flex-shrink:0;
+    display:flex; align-items:center;
+  }
+  .floor-io-svg { width:100%; height:28px; display:block; }
+  .flow-anim-line {
+    animation:flowLineDash 1.2s linear infinite;
+  }
+  @keyframes flowLineDash {
+    from { stroke-dashoffset: 32; }
+    to   { stroke-dashoffset: 0; }
+  }
+  .flow-dot-anim {
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:8px; height:8px; border-radius:50%;
+    background:var(--accent); box-shadow:0 0 6px var(--accent);
+    animation:dotFlow 1.8s linear infinite; left:-4px; opacity:0;
+  }
+  .flow-dot-anim.d2 { animation-delay:.6s; background:#4ade80; box-shadow:0 0 6px #4ade80; }
+  .flow-dot-anim.d3 { animation-delay:1.2s; background:#38bdf8; box-shadow:0 0 6px #38bdf8; }
+  @keyframes dotFlow {
+    0%   { left:-4px; opacity:0; }
+    5%   { opacity:1; }
+    90%  { opacity:1; }
+    100% { left:calc(100% - 4px); opacity:0; }
+  }
+  .intake-box {
+    background:rgba(0,198,255,0.08); border:2px solid rgba(0,198,255,0.4);
+    border-radius:16px; padding:14px 22px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    min-width:130px; flex-shrink:0;
+    box-shadow:0 0 18px rgba(0,198,255,0.12);
+  }
+  .intake-box-label { font-size:10px; color:var(--accent); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:1px; font-weight:700; }
+  .intake-box-num { font-size:34px; font-weight:800; font-family:'IBM Plex Mono',monospace; color:var(--accent); line-height:1; }
+  .floor-final-box {
+    background:rgba(0,198,255,0.08); border:2px solid rgba(0,198,255,0.4);
+    border-radius:16px; padding:14px 22px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    min-width:130px; flex-shrink:0;
+    box-shadow:0 0 18px rgba(0,198,255,0.12);
+  }
+  .floor-final-label { font-size:10px; color:var(--accent); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:1px; font-weight:700; }
+  .floor-final-num { font-size:34px; font-weight:800; font-family:'IBM Plex Mono',monospace; color:var(--accent); line-height:1; }
+
+  @keyframes ioPulse {
+    0%   { transform:scale(1); }
+    40%  { transform:scale(1.04); }
+    100% { transform:scale(1); }
+  }
+  .io-pulse { animation:ioPulse .35s ease; }
+  .alarm-modal {
+    position:fixed; inset:0; z-index:10000;
+    background:rgba(239,68,68,0.2);
+    backdrop-filter:blur(6px);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .25s;
+  }
+  .alarm-modal.open { opacity:1; pointer-events:all; }
+  .alarm-box {
+    background:#1a0808; border:2px solid var(--danger);
+    border-radius:20px; padding:36px 40px; text-align:center;
+    box-shadow:0 0 60px rgba(239,68,68,0.4);
+    animation:alarmShake .4s ease;
+    max-width:480px; width:90%;
+  }
+  @keyframes alarmShake {
+    0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)}
+  }
+  .alarm-icon { font-size:56px; margin-bottom:12px; animation:alarmBlink .5s infinite; }
+  @keyframes alarmBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .alarm-title { font-size:24px; font-weight:800; color:var(--danger); margin-bottom:8px; }
+  .alarm-msg { font-size:14px; color:#fca5a5; font-family:'IBM Plex Mono',monospace; line-height:1.7; margin-bottom:24px; }
+  .alarm-dismiss { padding:12px 32px; background:var(--danger); border:none; border-radius:10px; color:#fff; font-size:14px; font-weight:700; cursor:pointer; transition:opacity .15s; font-family:'IBM Plex Sans',sans-serif; }
+  .alarm-dismiss:hover { opacity:.85; }
+
+  /* Speed control */
+  .speed-row { display:flex; align-items:center; gap:10px; }
+  .speed-label { font-size:11px; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+  .speed-btn {
+    padding:5px 12px; border-radius:7px; border:1px solid var(--border);
+    background:var(--surface2); color:var(--muted); font-family:'IBM Plex Mono',monospace;
+    font-size:11px; cursor:pointer; transition:all .15s;
+  }
+  .speed-btn.active { background:rgba(0,198,255,0.15); border-color:var(--accent); color:var(--accent); }
+  .speed-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* Completion popup */
+  .completion-popup {
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.8);
+    z-index:10001;
+    border-radius:20px; padding:40px 52px; text-align:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .35s ease, transform .35s ease;
+    max-width:480px; width:90%;
+  }
+  .completion-popup.open {
+    opacity:1; pointer-events:all; transform:translate(-50%,-50%) scale(1);
+  }
+  .completion-popup.success {
+    background:#071a0f; border:2px solid #10b981;
+    box-shadow:0 0 70px rgba(16,185,129,0.4);
+  }
+  .completion-popup.failure {
+    background:#1a0808; border:2px solid var(--danger);
+    box-shadow:0 0 70px rgba(239,68,68,0.4);
+  }
+  .completion-icon { font-size:60px; margin-bottom:14px; }
+  .completion-title { font-size:22px; font-weight:800; margin-bottom:8px; }
+  .completion-popup.success .completion-title { color:#10b981; }
+  .completion-popup.failure .completion-title { color:var(--danger); }
+  .completion-msg { font-size:14px; font-family:'IBM Plex Mono',monospace; line-height:1.7; margin-bottom:26px; }
+  .completion-popup.success .completion-msg { color:#6ee7b7; }
+  .completion-popup.failure .completion-msg { color:#fca5a5; }
+  .completion-dismiss {
+    padding:12px 36px; border:none; border-radius:10px;
+    color:#fff; font-size:14px; font-weight:700; cursor:pointer;
+    transition:opacity .15s; font-family:'IBM Plex Sans',sans-serif;
+  }
+  .completion-popup.success .completion-dismiss { background:#10b981; }
+  .completion-popup.failure .completion-dismiss { background:var(--danger); }
+  .completion-dismiss:hover { opacity:.85; }
+  .completion-overlay {
+    position:fixed; inset:0; z-index:10000;
+    backdrop-filter:blur(6px);
+    opacity:0; pointer-events:none; transition:opacity .35s;
+  }
+  .completion-overlay.open { opacity:1; pointer-events:all; }
+  .completion-overlay.success { background:rgba(16,185,129,0.12); }
+  .completion-overlay.failure { background:rgba(239,68,68,0.12); }
+
+  /* Dynamic floor-final-box coloring */
+  .floor-final-box.result-ok {
+    background:rgba(16,185,129,0.08) !important; border-color:rgba(16,185,129,0.4) !important;
+    box-shadow:0 0 18px rgba(16,185,129,0.12) !important;
+  }
+  .floor-final-box.result-fail {
+    background:rgba(239,68,68,0.10) !important; border-color:rgba(239,68,68,0.5) !important;
+    box-shadow:0 0 18px rgba(239,68,68,0.18) !important;
+  }
+  .floor-final-label.result-ok { color:var(--accent3) !important; }
+  .floor-final-label.result-fail { color:var(--danger) !important; }
+  .floor-final-num.result-ok { color:var(--accent3) !important; }
+  .floor-final-num.result-fail { color:var(--danger) !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img src="data:image/png;base64,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" alt="OPAS Logo" style="height:52px;width:auto;object-fit:contain;">
+    <div>
+      <div class="logo-sub" style="font-size:15px;letter-spacing:1px;color:var(--text);font-weight:700;font-family:'IBM Plex Sans',sans-serif;">Simulador Produccion Laboratorio</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill"><div class="dot"></div> SISTEMA LISTO</div>
+    <button class="share-btn" onclick="openShareModal()">🔗 Compartir modelo</button>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Tabs -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('modelTab',this)">📊 Modelo de Producción</button>
+    <button class="tab-btn" onclick="switchTab('distTab',this)">📈 Distribución Horaria</button>
+    <button class="tab-btn" onclick="switchTab('floorTab',this)">🏭 Vista de Planta Animada</button>
+  </div>
+
+  <!-- TAB 1: Modelo de Producción -->
+  <div id="modelTab" class="tab-content active">
+    <!-- ROW 1: Simulation Parameters full width — TOP -->
+    <div class="run-panel" style="margin-bottom:14px;flex-direction:row;align-items:center;gap:24px;padding:16px 24px;">
+      <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">🎛️ Parámetros</div>
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px 32px;align-items:center;">
+        <div class="control-row" style="margin-bottom:0;">
+          <div class="control-label">Horas de Turno <span class="control-val" id="lblHrs">10h</span></div>
+          <input type="range" id="sliderHrs" min="4" max="24" value="10" step="1" oninput="updateSlider('Hrs',this.value,'h');onHrsChange()">
+        </div>
+        <div class="control-row" style="margin-bottom:0;">
+          <div class="control-label">Demanda Objetivo <span class="control-val" id="lblDemand">100 trabajos</span></div>
+          <input type="range" id="sliderDemand" min="10" max="300" value="100" step="5" oninput="updateSlider('Demand',this.value,' trabajos');simulate()">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button class="run-btn" id="btnSimular" onclick="simulate()" style="padding:10px 22px;">▶ SIMULAR PRODUCCIÓN</button>
+        <button class="reset-btn" id="btnReset" onclick="resetAll()" style="padding:10px 14px;">↩ Restaurar</button>
+      </div>
+    </div>
+    <!-- ROW 2: KPI cards + Bottleneck Analysis side by side -->
+    <div style="display:grid;grid-template-columns:420px 1fr;gap:16px;margin-bottom:14px;align-items:stretch;">
+      <!-- Left: KPI cards stacked -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="kpi-bar" style="grid-template-columns:1fr 1fr;">
+          <div class="kpi-card">
+            <div class="kpi-label">⏱️ Tiempo de Procesamiento</div>
+            <div class="kpi-value kpi-accent" id="kpiCycle">—</div>
+            <div class="kpi-sub">min · llamada → facturación</div>
+          </div>
+          <div class="kpi-card" style="position:relative;overflow:hidden;">
+            <div class="kpi-label">⚙️ Cap. Hora Pico</div>
+            <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+              <div>
+                <div class="kpi-value kpi-warn" id="kpiCap">—</div>
+                <div class="kpi-sub">u/hora máx</div>
+              </div>
+              <div style="padding-bottom:4px;">
+                <div style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-bottom:2px;">u/día teórico</div>
+                <div style="font-size:26px;font-weight:800;letter-spacing:-1px;color:var(--accent);" id="kpiCapDay">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="kpi-card" style="background:linear-gradient(135deg,rgba(124,58,237,0.10),rgba(0,198,255,0.06));border-color:rgba(124,58,237,0.3);position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent2),var(--accent));"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <div>
+              <div class="kpi-label" style="color:rgba(124,58,237,0.9);">🔥 Demanda Hora Pico</div>
+              <div style="font-size:32px;font-weight:800;letter-spacing:-1px;color:var(--accent2);font-family:'IBM Plex Mono',monospace;" id="kpiPeakDemand">—</div>
+              <div class="kpi-sub">unidades en la hora más cargada</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="kpi-label" style="color:rgba(0,198,255,0.8);">🕐 Hora Pico</div>
+              <div style="font-size:32px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:var(--accent);letter-spacing:-1px;" id="kpiPeakHour">—</div>
+              <div class="kpi-sub">hora del turno con mayor demanda</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Right: Bottleneck Analysis -->
+      <div class="analysis-panel" style="min-height:0;">
+        <div class="analysis-title">🚨 Análisis de Cuellos de Botella</div>
+        <div class="bn-grid" id="bnAnalysis">
+          <div style="font-size:12px;color:var(--muted);text-align:center;padding:20px 0;grid-column:1/-1;">Presiona Simular para ver el análisis</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:none"><!-- legacy wrapper --></div>
+
+    <div class="main-grid">
+      <div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">⚙️ Estaciones de Producción <span class="badge-new">EDITABLE</span></div>
+            <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">Cap. Efectiva = por hora · según distribución horaria</div>
+          </div>
+          <div class="col-headers">
+            <div class="col-h">#</div>
+            <div class="col-h">Estación / Operador</div>
+            <div class="col-h">Tiempo (min)</div>
+            <div class="col-h">Unidades</div>
+            <div class="col-h">Cap./Hora</div>
+            <div class="col-h">Estado</div>
+          </div>
+          <div class="pipeline-scroll" id="pipelineTable"></div>
+        </div>
+
+        <!-- Hourly breakdown table -->
+        <div class="panel" style="margin-top:20px;">
+          <div class="panel-header">
+            <div class="panel-title">🕐 Detalle por Hora — Cuello de Botella</div>
+            <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;" id="hourlySubtitle">Muestra cuántas unidades llegan y procesa la estación limitante por hora</div>
+          </div>
+          <div class="panel-body" style="padding:16px 20px;">
+            <div id="hourlyTableWrap"></div>
+          </div>
+        </div>
+
+        <div class="flow-panel">
+          <div class="panel-header">
+            <div class="panel-title">🔄 Flujo de Producción</div>
+            <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;" id="flowStatus">Presiona Simular para activar</div>
+          </div>
+          <div class="flow-inner"><div class="flow-diagram" id="flowDiagram"></div></div>
+        </div>
+
+        <div class="log-panel">
+          <div class="panel-header"><div class="panel-title">📋 Registro de Simulación</div></div>
+          <div class="log-body" id="logBody">
+            <div class="log-entry"><span class="log-time">00:00</span><span class="log-msg info">Sistema iniciado. Configure los parámetros y presione Simular.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /modelTab -->
+
+  <!-- TAB 2: Distribución Horaria -->
+  <div id="distTab" class="tab-content">
+    <div class="dist-panel">
+      <div class="panel-header">
+        <div class="panel-title">📈 Distribución Horaria de Demanda</div>
+        <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">Los porcentajes definen qué fracción de la demanda diaria entra en cada hora</div>
+      </div>
+      <div class="dist-inner">
+        <div class="start-hour-row">
+          <span class="start-hour-label">Hora inicio turno:</span>
+          <input type="number" class="start-hour-input" id="startHour" min="0" max="23" value="7" oninput="rebuildDistribution()">
+          <button class="norm-btn" onclick="normalizeDistribution()">⚖️ Normalizar a 100%</button>
+          <button class="norm-btn" onclick="loadDefaultDist()">↩ Cargar tabla oficial</button>
+          <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;" id="distTotalHint"></span>
+        </div>
+        <div class="dist-grid" id="distGrid"></div>
+        <!-- Totals row aligned under columns -->
+        <div class="dist-totals-row" id="distTotalsRow">
+          <!-- filled by renderDistGrid -->
+        </div>
+        <!-- Bar chart -->
+        <div style="margin-top:24px;">
+          <div style="font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Gráfico de distribución horaria</div>
+          <div class="hour-chart" id="distChart"></div>
+          <!-- Polynomial equation box -->
+          <div class="poly-eq-box" id="polyEqBox" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /distTab -->
+
+  <!-- TAB 3: Vista de Planta -->
+  <div id="floorTab" class="tab-content">
+    <div class="floor-controls">
+      <div>
+        <div class="floor-hour-label">HORA INICIO</div>
+        <div class="floor-clock" id="floorClock">07:00</div>
+      </div>
+      <div>
+        <div class="floor-hour-label">HORA</div>
+        <div style="font-size:18px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--muted);" id="floorHourNum">1 / 10</div>
+      </div>
+      <div class="floor-progress-wrap">
+        <div class="floor-progress-label">Progreso del turno</div>
+        <div class="floor-progress-bar-bg"><div class="floor-progress-bar" id="floorProgressBar"></div></div>
+      </div>
+      <div class="speed-row">
+        <span class="speed-label">Velocidad:</span>
+        <button class="speed-btn active" onclick="setSpeed(1,this)">1×</button>
+        <button class="speed-btn" onclick="setSpeed(2,this)">2×</button>
+        <button class="speed-btn" onclick="setSpeed(4,this)">4×</button>
+      </div>
+      <button class="floor-btn" id="floorPlayBtn" onclick="toggleFloorSim()">▶ INICIAR SIMULACIÓN</button>
+      <button class="floor-btn secondary" onclick="resetFloorSim()">↩ Reset</button>
+    </div>
+
+    <div class="floor-canvas-wrap" id="floorCanvas">
+      <!-- Top IO row: Entrada ←→ animated line ←→ Total Procesado -->
+      <div class="floor-io-row">
+        <div class="floor-io-side floor-io-side-left">
+          <div class="floor-io-side-text">Unidades entrando al flujo<br>según distribución horaria</div>
+        </div>
+        <div class="intake-box" id="intakeRow">
+          <div class="intake-box-label">Entrada de unidades</div>
+          <div class="intake-box-num" id="intakeBoxNum">0</div>
+        </div>
+        <!-- Animated flow connector -->
+        <div class="floor-io-connector">
+          <svg class="floor-io-svg" viewBox="0 0 160 28" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#00c6ff;stop-opacity:0.8"/>
+                <stop offset="100%" style="stop-color:#10b981;stop-opacity:0.8"/>
+              </linearGradient>
+              <linearGradient id="flowGradFade" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#00c6ff;stop-opacity:0.15"/>
+                <stop offset="100%" style="stop-color:#10b981;stop-opacity:0.15"/>
+              </linearGradient>
+            </defs>
+            <!-- Background track -->
+            <line x1="0" y1="14" x2="160" y2="14" stroke="url(#flowGradFade)" stroke-width="3" stroke-linecap="round"/>
+            <!-- Animated flow line -->
+            <line x1="0" y1="14" x2="160" y2="14" stroke="url(#flowGrad)" stroke-width="3" stroke-linecap="round" stroke-dasharray="20 12" class="flow-anim-line"/>
+            <!-- Arrow tip -->
+            <polygon points="152,9 160,14 152,19" fill="#10b981" opacity="0.9"/>
+          </svg>
+          <!-- Animated dots -->
+          <div class="flow-dot-anim" id="flowDot1"></div>
+          <div class="flow-dot-anim d2" id="flowDot2"></div>
+          <div class="flow-dot-anim d3" id="flowDot3"></div>
+        </div>
+        <div class="floor-final-box" id="floorFinalBox">
+          <div class="floor-final-label">📦 Total procesado</div>
+          <div class="floor-final-num" id="floorFinalNum">0</div>
+        </div>
+        <div class="floor-io-side floor-io-side-right">
+          <div class="floor-io-side-text">Total de unidades<br>completadas en el turno</div>
+        </div>
+      </div>
+      <!-- Station grid -->
+      <div class="floor-grid" id="floorGrid"></div>
+    </div>
+  </div><!-- /floorTab -->
+
+</div><!-- /container -->
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal-box">
+    <div class="modal-title">🔗 Compartir Modelo</div>
+    <div class="modal-sub">Elige cómo deseas compartir este simulador</div>
+    <div class="modal-option selected" id="optReadonly" onclick="selectShareMode('readonly')">
+      <div class="modal-option-icon">🔒</div>
+      <div>
+        <div class="modal-option-title">Solo lectura</div>
+        <div class="modal-option-desc">El destinatario puede ver y explorar el modelo pero no puede modificar valores.</div>
+      </div>
+    </div>
+    <div class="modal-option" id="optEditable" onclick="selectShareMode('editable')">
+      <div class="modal-option-icon">✏️</div>
+      <div>
+        <div class="modal-option-title">Editable</div>
+        <div class="modal-option-desc">El destinatario puede modificar valores, simular y explorar libremente.</div>
+      </div>
+    </div>
+    <!-- Divider -->
+    <div class="share-divider">
+      <div class="share-divider-line"></div>
+      <div class="share-divider-text">Enviar por</div>
+      <div class="share-divider-line"></div>
+    </div>
+    <!-- Channel buttons -->
+    <div class="share-channels">
+      <button class="share-channel-btn sch-copy" onclick="shareVia('copy')">
+        <span class="sch-icon">📋</span>
+        <span class="sch-label">Copiar enlace</span>
+        <span class="sch-sub">Al portapapeles</span>
+      </button>
+      <button class="share-channel-btn sch-whatsapp" onclick="shareVia('whatsapp')">
+        <span class="sch-icon">💬</span>
+        <span class="sch-label">WhatsApp</span>
+        <span class="sch-sub">Enviar mensaje directo</span>
+      </button>
+      <button class="share-channel-btn sch-outlook" onclick="shareVia('outlook')">
+        <span class="sch-icon">📧</span>
+        <span class="sch-label">Outlook / Email</span>
+        <span class="sch-sub">Abrir redacción</span>
+      </button>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeShareModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Alarm Modal -->
+<div class="alarm-modal" id="alarmModal">
+  <div class="alarm-box">
+    <div class="alarm-icon">🚨</div>
+    <div class="alarm-title">⚠️ CAPACIDAD EXCEDIDA</div>
+    <div class="alarm-msg" id="alarmMsg">La estación supera su capacidad máxima en esta hora.</div>
+    <button class="alarm-dismiss" onclick="dismissAlarm()">✓ Entendido</button>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- Completion overlay -->
+<div class="completion-overlay" id="completionOverlay"></div>
+<!-- Completion popup -->
+<div class="completion-popup" id="completionPopup">
+  <div class="completion-icon" id="completionIcon"></div>
+  <div class="completion-title" id="completionTitle"></div>
+  <div class="completion-msg" id="completionMsg"></div>
+  <button class="completion-dismiss" onclick="dismissCompletion()">✓ Cerrar</button>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+//  Data model
+// ─────────────────────────────────────────────────────────────
+const BASE_STATIONS = [
+  { id:1,  name:"Cliente",         detail:"Recepción de orden (llamada)",       icon:"📞", baseTime:3,   units:2, category:"admin" },
+  { id:2,  name:"Recepcion",       detail:"Transcripción en Base Carácter",     icon:"💻", baseTime:3,   units:2, category:"admin" },
+  { id:3,  name:"Almacenista",     detail:"Búsqueda de cristales y orden",      icon:"📦", baseTime:4,   units:2, category:"almacen" },
+  { id:4,  name:"Innovation",      detail:"Innovation + cálculo de tallado",    icon:"🖥️", baseTime:3.5, units:1, category:"admin" },
+  { id:5,  name:"Block",           detail:"Teipe, marca centro y Block",        icon:"🎯", baseTime:5,   units:2, category:"prep" },
+  { id:6,  name:"Enfriamiento",    detail:"Caja en reposo (tiempo fijo)",       icon:"❄️", baseTime:10,  units:1, category:"cool", fixed:true, excludeFromBN:true },
+  { id:7,  name:"Generador",       detail:"Máquina de tallado (automática)",    icon:"⚙️", baseTime:5,   units:2, category:"machine" },
+  { id:8,  name:"Pulido",          detail:"Máquina de pulido",                  icon:"🔮", baseTime:5,   units:2, category:"machine" },
+  { id:9,  name:"Laser",           detail:"Máquina de láser",                   icon:"🔆", baseTime:3,   units:1, category:"machine" },
+  { id:10, name:"Control Calidad", detail:"Inspección y verificación",          icon:"✅", baseTime:3.5, units:1, category:"qc" },
+  { id:11, name:"Facturación",     detail:"Facturación y cierre de orden",      icon:"🧾", baseTime:3,   units:1, category:"admin" },
+];
+
+// Official hourly distribution from Excel (10h default)
+const OFFICIAL_DIST = [
+  { pct: 1.195 },  // 07-08
+  { pct: 7.2023 }, // 08-09
+  { pct: 13.8284 },// 09-10
+  { pct: 12.4627 },// 10-11
+  { pct: 16.7947 },// 11-12
+  { pct: 15.1088 },// 12-13
+  { pct: 9.1656 }, // 13-14
+  { pct: 13.7644 },// 14-15
+  { pct: 9.6031 }, // 15-16
+  { pct: 0.8749 }, // 16-17
+];
+
+let stations = JSON.parse(JSON.stringify(BASE_STATIONS)).map(s => ({ ...s, time: s.baseTime }));
+
+// Hourly distribution state: array of {label, pct}
+let hourDist = [];
+
+function buildHourDist() {
+  const hrs = parseInt(document.getElementById('sliderHrs').value);
+  const start = parseInt(document.getElementById('startHour').value) || 7;
+  const prev = [...hourDist];
+  hourDist = [];
+  for (let i = 0; i < hrs; i++) {
+    const h = (start + i) % 24;
+    const h2 = (start + i + 1) % 24;
+    const label = `${String(h).padStart(2,'0')}:00 - ${String(h2).padStart(2,'0')}:00`;
+    // Try to keep previous pct if same number of hours
+    const prevPct = (prev[i] && prev.length === hrs) ? prev[i].pct : (OFFICIAL_DIST[i] ? Math.round(OFFICIAL_DIST[i].pct) : Math.round(100/hrs));
+    hourDist.push({ label, h, pct: prevPct });
+  }
+}
+
+function loadDefaultDist() {
+  const hrs = parseInt(document.getElementById('sliderHrs').value);
+  const start = parseInt(document.getElementById('startHour').value) || 7;
+  hourDist = [];
+  for (let i = 0; i < hrs; i++) {
+    const h = (start + i) % 24;
+    const h2 = (start + i + 1) % 24;
+    const label = `${String(h).padStart(2,'0')}:00 - ${String(h2).padStart(2,'0')}:00`;
+    const pct = OFFICIAL_DIST[i] ? Math.round(OFFICIAL_DIST[i].pct) : 0;
+    hourDist.push({ label, h, pct });
+  }
+  renderDistGrid();
+  simulate();
+}
+
+function normalizeDistribution() {
+  const sum = hourDist.reduce((s,d) => s + d.pct, 0);
+  if (sum === 0) return;
+  hourDist.forEach(d => d.pct = parseFloat((d.pct / sum * 100).toFixed(4)));
+  renderDistGrid();
+  simulate();
+}
+
+function rebuildDistribution() {
+  buildHourDist();
+  renderDistGrid();
+  simulate();
+}
+
+function onHrsChange() {
+  buildHourDist();
+  renderDistGrid();
+  simulate();
+  document.getElementById('lblHrs').textContent = document.getElementById('sliderHrs').value + 'h';
+}
+
+function renderDistGrid() {
+  const grid = document.getElementById('distGrid');
+  const demand = parseInt(document.getElementById('sliderDemand').value);
+  const total = hourDist.reduce((s,d) => s + d.pct, 0);
+  grid.innerHTML = '';
+  hourDist.forEach((d, i) => {
+    const units = Math.round(demand * d.pct / 100);
+    const row = document.createElement('div');
+    row.className = 'dist-row';
+    row.innerHTML = `
+      <div class="dist-hour">${d.label}</div>
+      <div class="dist-pct-wrap">
+        <div class="dist-pct-bar-bg">
+          <div class="dist-pct-bar" style="width:${Math.min(d.pct/total*100 || 0, 100)}%"></div>
+        </div>
+      </div>
+      <input class="dist-pct-input" type="number" min="0" max="100" step="1" value="${Math.round(d.pct)}"
+        oninput="updateDistPct(${i}, this.value)" style="width:100%;text-align:right;">
+      <span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-align:left;">%</span>
+      <div></div>
+      <div class="dist-units-info" title="Unidades entrantes (informativo)">${units} u</div>
+    `;
+    grid.appendChild(row);
+  });
+  // Aligned totals row
+  const totalUnits = hourDist.reduce((s,d) => s + Math.round(demand * d.pct / 100), 0);
+  const totalsRow = document.getElementById('distTotalsRow');
+  const pctClass = Math.abs(total - 100) < 0.5 ? 'ok' : 'err';
+  const pctHint = Math.abs(total - 100) < 0.5 ? '✓ suma 100%' : '⚠ no suma 100%';
+  totalsRow.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">TOTAL</div>
+    <div class="dist-total-spacer"></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;">
+      <span class="dist-total-pct-col ${pctClass}">${Math.round(total)}</span>
+      <span class="dist-total-pct-hint">${pctHint}</span>
+    </div>
+    <span class="dist-total-pct-sign">%</span>
+    <div class="dist-total-spacer"></div>
+    <div class="dist-total-units-col">${totalUnits} u</div>
+  `;
+  document.getElementById('distTotalHint').textContent = Math.abs(total - 100) < 0.5 ? '' : '⚠ No suma 100% — usa Normalizar';
+  renderDistChart();
+}
+
+function updateDistPct(i, val) {
+  hourDist[i].pct = parseFloat(val) || 0;
+  renderDistGrid();
+  simulate();
+}
+
+function renderDistChart() {
+  const chart = document.getElementById('distChart');
+  chart.innerHTML = '';
+  if (!hourDist.length) return;
+
+  const maxPct = Math.max(...hourDist.map(d => d.pct), 1);
+  const chartH = 280; // bar area height in px (excluding labels ~40px)
+
+  // Build bar wrappers
+  const inner = document.createElement('div');
+  inner.className = 'hour-chart-inner';
+  inner.style.position = 'relative';
+
+  const barMetas = []; // store {cx, cy} for trend line in % of container
+
+  hourDist.forEach((d, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'hour-bar-wrap';
+    const barH = Math.max(Math.round(d.pct / maxPct * chartH), 2);
+    wrap.innerHTML = `
+      <div class="hour-bar-pct">${Math.round(d.pct)}%</div>
+      <div class="hour-bar" style="height:${barH}px;" title="${d.label}: ${Math.round(d.pct)}%"></div>
+      <div class="hour-bar-label">${d.label.split(' ')[0]}</div>
+    `;
+    inner.appendChild(wrap);
+    barMetas.push({ barH, pct: d.pct });
+  });
+
+  chart.appendChild(inner);
+
+  // After layout, draw SVG trend line overlay using requestAnimationFrame
+  requestAnimationFrame(() => {
+    const n = hourDist.length;
+    if (n < 3) { document.getElementById('polyEqBox').style.display='none'; return; }
+
+    // Get bar positions relative to inner container
+    const innerRect = inner.getBoundingClientRect();
+    const wrappers = inner.querySelectorAll('.hour-bar-wrap');
+    const pts = [];
+    wrappers.forEach((w, i) => {
+      const bar = w.querySelector('.hour-bar');
+      const wRect = w.getBoundingClientRect();
+      const cx = wRect.left - innerRect.left + wRect.width / 2;
+      // bar top relative to container bottom (chart area only, excluding label)
+      const barRect = bar.getBoundingClientRect();
+      const cy = barRect.top - innerRect.top;
+      pts.push({ x: cx, y: cy, pct: hourDist[i].pct });
+    });
+
+    // Polynomial order 2 regression: y = a0 + a1*x + a2*x^2
+    // x = 0..n-1, y = pct values
+    const xs = pts.map((_,i) => i);
+    const ys = pts.map(p => p.pct);
+    const poly = polyFit2(xs, ys);
+
+    // SVG dimensions
+    const svgW = innerRect.width;
+    const svgH = innerRect.height - 32; // exclude label area (~32px)
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('class','hour-chart-svg');
+    svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+    svg.setAttribute('preserveAspectRatio','none');
+    svg.style.width = svgW + 'px';
+    svg.style.height = svgH + 'px';
+
+    // Build trend path — sample many points
+    const steps = 80;
+    const pathPts = [];
+    for (let s = 0; s <= steps; s++) {
+      const xi = (n - 1) * s / steps;
+      const ypct = poly.a0 + poly.a1 * xi + poly.a2 * xi * xi;
+      // Map xi to pixel x using bar positions
+      const xfrac = xi / (n - 1);
+      const px = pts[0].x + xfrac * (pts[n-1].x - pts[0].x);
+      // Map ypct to pixel y (invert: higher pct = lower y = higher on chart)
+      const py = svgH - (ypct / maxPct) * svgH;
+      pathPts.push(`${px.toFixed(1)},${py.toFixed(1)}`);
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    path.setAttribute('points', pathPts.join(' '));
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke','#ef4444');
+    path.setAttribute('stroke-width','2.5');
+    path.setAttribute('stroke-dasharray','6 4');
+    path.setAttribute('stroke-linecap','round');
+    path.setAttribute('opacity','0.85');
+    svg.appendChild(path);
+
+    // Dots at each data point on trend line
+    pts.forEach((p, i) => {
+      const ypct = poly.a0 + poly.a1 * i + poly.a2 * i * i;
+      const py = svgH - (ypct / maxPct) * svgH;
+      const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circle.setAttribute('cx', p.x.toFixed(1));
+      circle.setAttribute('cy', py.toFixed(1));
+      circle.setAttribute('r','3.5');
+      circle.setAttribute('fill','#ef4444');
+      circle.setAttribute('opacity','0.7');
+      svg.appendChild(circle);
+    });
+
+    inner.appendChild(svg);
+
+    // Equation box
+    const a0 = poly.a0, a1 = poly.a1, a2 = poly.a2;
+    const fmt = v => (v >= 0 ? '+' : '') + v.toFixed(2);
+    const eqStr = `y = ${a2.toFixed(3)}x² ${fmt(a1)}x ${fmt(a0)}`;
+
+    // Compute R²
+    const yMean = ys.reduce((s,v) => s+v, 0) / n;
+    const ssTot = ys.reduce((s,v,i) => s + (v-yMean)**2, 0);
+    const ssRes = ys.reduce((s,v,i) => {
+      const yh = a0 + a1*i + a2*i*i;
+      return s + (v-yh)**2;
+    }, 0);
+    const r2 = ssTot > 0 ? Math.max(0, 1 - ssRes/ssTot) : 1;
+
+    // Interpret shape
+    let shape = '';
+    if (Math.abs(a2) < 0.05) shape = 'Distribución aproximadamente lineal';
+    else if (a2 < 0) shape = 'Distribución con pico en el centro del turno (curva cóncava)';
+    else shape = 'Distribución con mayor volumen en los extremos del turno (curva convexa)';
+
+    const eqBox = document.getElementById('polyEqBox');
+    eqBox.style.display = 'block';
+    // Store poly coefficients on eqBox for calculator use
+    eqBox.dataset.a0 = a0;
+    eqBox.dataset.a1 = a1;
+    eqBox.dataset.a2 = a2;
+    const startH = parseInt(document.getElementById('startHour').value) || 7;
+    eqBox.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;flex-wrap:nowrap;">
+        <div style="min-width:0;">
+          <div class="poly-eq-title">Línea de tendencia — Polinomio de orden 2</div>
+          <div class="poly-eq-formula">${eqStr}</div>
+          <div class="poly-eq-desc">
+            Donde <strong>x</strong> = índice de hora (0 = primera hora del turno) · <strong>y</strong> = % de distribución estimado<br>
+            <span style="color:var(--accent3);">R² = ${r2.toFixed(4)}</span> &nbsp;·&nbsp; ${shape}<br>
+            <span style="color:var(--muted);font-size:10px;">Coeficientes: a₂ = ${a2.toFixed(4)} · a₁ = ${a1.toFixed(4)} · a₀ = ${a0.toFixed(4)}</span>
+          </div>
+        </div>
+        <div style="background:rgba(0,198,255,0.06);border:1px solid rgba(0,198,255,0.25);border-radius:12px;padding:12px 18px;white-space:nowrap;">
+          <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-family:'IBM Plex Mono',monospace;font-weight:700;margin-bottom:4px;">🧮 Calculadora de estimación</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;line-height:1.5;white-space:normal;max-width:360px;">Ingresa el total de unidades esperadas para el día y una hora del turno para estimar cuántas unidades llegarán en esa franja horaria, según la curva de distribución.</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <label style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Paquetes del día:</label>
+              <input id="calcDayPkg" type="number" min="1" max="9999" placeholder="ej. 100"
+                style="width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:5px 8px;text-align:center;outline:none;transition:border-color .2s;"
+                oninput="calcPolyY()" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <label style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Hora del día:</label>
+              <input id="calcHourVal" type="number" min="0" max="23" placeholder="ej. ${startH+4}"
+                style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:5px 8px;text-align:center;outline:none;transition:border-color .2s;"
+                oninput="calcPolyY()" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+            <div style="padding:8px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,198,255,0.15);border-radius:9px;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">Estimado:</span>
+              <span id="calcResult" style="font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:var(--warn);letter-spacing:-1px;min-width:40px;text-align:center;">—</span>
+              <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">paquetes</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Polynomial Y calculator
+// ─────────────────────────────────────────────────────────────
+function calcPolyY() {
+  const dayPkg = parseInt(document.getElementById('calcDayPkg')?.value);
+  const hourVal = parseInt(document.getElementById('calcHourVal')?.value);
+  const resultEl = document.getElementById('calcResult');
+  if (!resultEl) return;
+  if (isNaN(dayPkg) || isNaN(hourVal) || dayPkg <= 0) { resultEl.textContent = '—'; return; }
+  const eqBox = document.getElementById('polyEqBox');
+  const a0 = parseFloat(eqBox.dataset.a0);
+  const a1 = parseFloat(eqBox.dataset.a1);
+  const a2 = parseFloat(eqBox.dataset.a2);
+  if (isNaN(a0)) { resultEl.textContent = '—'; return; }
+  // x = hour index (0-based from shift start)
+  const startH = parseInt(document.getElementById('startHour').value) || 7;
+  let x = hourVal - startH;
+  if (x < 0) x += 24; // wrap overnight
+  const yPct = a0 + a1 * x + a2 * x * x;
+  const yClamp = Math.max(0, yPct);
+  const result = Math.round(dayPkg * yClamp / 100);
+  resultEl.textContent = result;
+}
+
+// Least-squares polynomial degree-2 fit
+function polyFit2(xs, ys) {
+  const n = xs.length;
+  // Build normal equations: [S1 Sx Sx2; Sx Sx2 Sx3; Sx2 Sx3 Sx4] * [a0;a1;a2] = [Sy;Sxy;Sx2y]
+  let S1=n, Sx=0, Sx2=0, Sx3=0, Sx4=0, Sy=0, Sxy=0, Sx2y=0;
+  xs.forEach((x,i) => {
+    const y = ys[i];
+    Sx += x; Sx2 += x*x; Sx3 += x*x*x; Sx4 += x*x*x*x;
+    Sy += y; Sxy += x*y; Sx2y += x*x*y;
+  });
+  // Solve 3x3 system via Cramer's rule
+  const A = [[S1,Sx,Sx2],[Sx,Sx2,Sx3],[Sx2,Sx3,Sx4]];
+  const b = [Sy, Sxy, Sx2y];
+  const det3 = (m) =>
+    m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])
+   -m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])
+   +m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
+  const D = det3(A);
+  const replCol = (m, col, v) => m.map((row,i) => row.map((c,j) => j===col ? v[i] : c));
+  const a0 = det3(replCol(A,0,b)) / D;
+  const a1 = det3(replCol(A,1,b)) / D;
+  const a2 = det3(replCol(A,2,b)) / D;
+  return { a0, a1, a2 };
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Simulation (hourly model)
+// ─────────────────────────────────────────────────────────────
+function updateSlider(id, val, suffix) {
+  document.getElementById('lbl'+id).textContent = val+suffix;
+}
+
+function simulate() {
+  const hrs = parseInt(document.getElementById('sliderHrs').value);
+  const demand = parseInt(document.getElementById('sliderDemand').value);
+
+  // Per-station capacity per hour (units/hour)
+  const withEff = stations.map(s => ({
+    ...s,
+    effTime: s.time / s.units,
+    capPerHour: (s.excludeFromBN || s.excludeFromCap) ? Infinity : Math.floor(60 / (s.time / s.units))
+  }));
+
+  // Bottleneck = ALL stations with lowest capPerHour (could be multiple ties)
+  const sorted = [...withEff].filter(s => !s.excludeFromBN && !s.excludeFromCap).sort((a,b) => a.capPerHour - b.capPerHour);
+  const bottle = sorted[0];
+  const bottleCapPerHour = bottle.capPerHour;
+  // Find ALL stations that share the minimum capacity (tied bottlenecks)
+  const bottleneckIds = sorted.filter(s => s.capPerHour === bottleCapPerHour).map(s => s.id);
+
+  // Total daily system capacity = bottleneck capPerHour × hours
+  const systemCap = bottleCapPerHour * hrs;
+  const cycleTotal = stations.reduce((s, st) => s + st.time, 0);
+  const metDemand = systemCap >= demand;
+
+  // Peak hour demand info
+  const peakEntry = hourDist.length ? hourDist.reduce((a,b) => a.pct >= b.pct ? a : b) : null;
+  const peakPctVal = peakEntry ? peakEntry.pct : (100 / (hrs || 1));
+  const peakUnitsVal = Math.round(demand * peakPctVal / 100);
+  const peakHourLabel = peakEntry ? peakEntry.label.split(' ')[0] : '—';
+
+  // KPIs
+  document.getElementById('kpiCycle').textContent = cycleTotal + ' min';
+  document.getElementById('kpiCap').textContent = bottleCapPerHour + ' u/h';
+  document.getElementById('kpiCapDay').textContent = systemCap + ' u/día';
+  document.getElementById('kpiPeakDemand').textContent = peakUnitsVal + ' u';
+  document.getElementById('kpiPeakHour').textContent = peakHourLabel;
+  document.getElementById('flowStatus').textContent = `▶ Activo — ${systemCap} u/día · ${bottleCapPerHour} u/h máx`;
+
+  renderTable(bottleneckIds, withEff, demand);
+  renderFlow(bottleneckIds, true);
+  renderBN(sorted, bottleneckIds, demand);
+  renderHourlyTable(sorted.filter(s => bottleneckIds.includes(s.id)), demand);
+  addLog(hrs, demand, systemCap, bottle, metDemand, cycleTotal, sorted);
+
+  if(!metDemand) {
+    showToast(`⚠️ Capacidad (${systemCap}) no cubre demanda (${demand}). Cuello: ${bottle.name}`, 'warn');
+  } else {
+    showToast(`✓ Simulación completada. Cap: ${systemCap} u/día`, 'info');
+  }
+}
+
+function renderTable(bottleneckIds, withEff, demand) {
+  const tbody = document.getElementById('pipelineTable');
+  tbody.innerHTML = '';
+  const maxCapH = Math.max(...withEff.filter(s=>!s.excludeFromBN).map(s=>s.capPerHour).filter(x=>x!==Infinity), 1);
+  if (!Array.isArray(bottleneckIds)) bottleneckIds = [bottleneckIds];
+
+  withEff.forEach(s => {
+    const capH = s.capPerHour;
+    const util = s.excludeFromBN ? 0 : (capH === Infinity ? 0 : (capH / maxCapH) * 100);
+    // Find peak hour demand
+    const peakPct = hourDist.length ? Math.max(...hourDist.map(d=>d.pct)) : 100/8;
+    const peakUnits = Math.round(demand * peakPct / 100);
+    const coverPct = (s.excludeFromBN || s.excludeFromCap) ? 999 : (capH / peakUnits) * 100;
+
+    let utilColor, tagClass, tagText, rowExtra;
+    if (s.excludeFromBN || s.excludeFromCap) {
+      utilColor='var(--muted)';tagClass='tag-neutral';tagText='— EXCLUIDO';rowExtra='';
+    } else if (bottleneckIds.includes(s.id) || coverPct <= 105) {
+      utilColor='var(--danger)';tagClass='tag-danger';tagText='🔴 CUELLO';rowExtra=' bottleneck';
+    } else if (coverPct <= 115) {
+      utilColor='var(--warn)';tagClass='tag-warn';tagText='🟡 ALERTA';rowExtra=' alert-station';
+    } else {
+      utilColor='var(--accent3)';tagClass='tag-ok';tagText='✓ OK';rowExtra='';
+    }
+
+    const row = document.createElement('div');
+    row.className = 'station-row' + rowExtra;
+    row.innerHTML = `
+      <div class="station-num">${s.id}</div>
+      <div class="station-info">
+        <div class="station-name">${s.icon} ${s.name}</div>
+        <div class="station-detail">${s.detail}</div>
+      </div>
+      <div class="station-time-col">
+        ${s.fixed
+          ? `<span style="font-size:13px;font-family:'IBM Plex Mono',monospace;color:var(--muted);padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;display:inline-block;">${s.time}</span>
+             <span class="time-unit">min</span>
+             <span style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 6px;margin-left:4px;">FIJO</span>`
+          : `<input class="time-input" type="number" min="0.5" max="120" step="0.5"
+              value="${s.time}"
+              oninput="updateStation(${s.id},'time',this.value)"
+              title="Editar tiempo de procesamiento">
+             <span class="time-unit">min</span>`
+        }
+      </div>
+      <div class="units-col">
+        ${s.fixed
+          ? `<span style="font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">—</span>`
+          : `<button class="unit-btn" onclick="changeUnits(${s.id},-1)">−</button>
+             <span class="unit-count">${s.units}</span>
+             <button class="unit-btn" onclick="changeUnits(${s.id},+1)">+</button>`
+        }
+      </div>
+      <div class="capacity-col">
+        ${s.excludeFromCap
+          ? `<div class="cap-val" style="color:var(--muted);">—</div><div class="util-bar-wrap"><div class="util-bar" style="width:0%;"></div></div><div class="cap-sub">excluido</div>`
+          : `<div class="cap-val">${capH}<span style="font-size:10px;color:var(--muted);"> u/hora</span></div>
+             <div class="util-bar-wrap"><div class="util-bar" style="width:${util}%;background:${utilColor}"></div></div>
+             <div class="cap-sub">${s.excludeFromBN ? 'excluido' : `${coverPct.toFixed(0)}% vs hora pico`}</div>`
+        }
+      </div>
+      <div><span class="tag ${tagClass}">${tagText}</span></div>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+function renderHourlyTable(bottles, demand) {
+  // bottles is an array of bottleneck stations (could be 1 or more)
+  if (!Array.isArray(bottles)) bottles = [bottles];
+  const bottle = bottles[0]; // use first for capacity (all have same cap)
+  const wrap = document.getElementById('hourlyTableWrap');
+  if (!hourDist.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:12px;">Configure la distribución horaria.</p>'; return; }
+  const bnNames = bottles.map(b => b.icon + ' ' + b.name).join(' · ');
+  document.getElementById('hourlySubtitle').textContent = `Cuello de botella: ${bnNames} · Cap. ${bottle.capPerHour} u/hora`;
+
+  let rows = '';
+  let cumProcessed = 0;
+  hourDist.forEach((d, i) => {
+    const incoming = Math.round(demand * d.pct / 100);
+    const canProcess = bottle.capPerHour;
+    const processed = Math.min(incoming, canProcess);
+    cumProcessed += processed;
+    const overflow = Math.max(0, incoming - canProcess);
+    const cls = overflow > 0 ? 'h-danger' : incoming >= canProcess * 0.85 ? 'h-warn' : 'h-ok';
+    rows += `<tr>
+      <td style="color:var(--accent);">${d.label}</td>
+      <td>${Math.round(d.pct)}%</td>
+      <td>${incoming}</td>
+      <td style="color:var(--accent3);">${canProcess}</td>
+      <td class="${cls}">${processed}</td>
+      <td class="${overflow>0?'h-danger':'h-ok'}">${overflow > 0 ? '−'+overflow+' ⚠' : '0 ✓'}</td>
+      <td>${cumProcessed}</td>
+    </tr>`;
+  });
+
+  wrap.innerHTML = `<table class="hourly-table">
+    <thead><tr>
+      <th>Franja Horaria</th><th>% Dist.</th><th>Unidades Entrantes</th>
+      <th>Cap. Estación</th><th>Procesadas</th><th>Déficit/Superávit</th><th>Acumulado</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderFlow(bottleneckIds, simActive) {
+  if (!Array.isArray(bottleneckIds)) bottleneckIds = [bottleneckIds];
+  const flow = document.getElementById('flowDiagram');
+  flow.innerHTML = '';
+  stations.forEach((s, i) => {
+    const isBottle = bottleneckIds.includes(s.id);
+    const node = document.createElement('div');
+    node.className = 'flow-node';
+    node.innerHTML = `
+      <div class="flow-box ${simActive?'active':''} ${isBottle?'bottleneck-node':''}">
+        <div class="flow-icon">${s.icon}</div>
+        <div class="flow-time">${s.time}m×${s.units}</div>
+        ${simActive ? '<div class="flow-dot"></div>' : ''}
+        ${simActive && i%3===1 ? '<div class="flow-dot d2"></div>' : ''}
+      </div>
+      <div class="flow-label">${s.name}</div>
+    `;
+    flow.appendChild(node);
+    if (i < stations.length-1) {
+      const arr = document.createElement('div');
+      arr.className = 'flow-arrow' + (simActive?' flow-active':'');
+      arr.innerHTML = '→';
+      flow.appendChild(arr);
+    }
+  });
+  const arr2 = document.createElement('div'); arr2.className='flow-arrow'+(simActive?' flow-active':''); arr2.innerHTML='→'; flow.appendChild(arr2);
+  const del = document.createElement('div'); del.className='flow-node';
+  del.innerHTML=`<div class="flow-box ${simActive?'active':''}"><div class="flow-icon">🚚</div><div class="flow-time">Entrega</div></div><div class="flow-label">Despacho</div>`;
+  flow.appendChild(del);
+}
+
+function renderBN(sorted, bottleneckIds, demand) {
+  if (!Array.isArray(bottleneckIds)) bottleneckIds = [bottleneckIds];
+  const panel = document.getElementById('bnAnalysis');
+  const peakPct = hourDist.length ? Math.max(...hourDist.map(d=>d.pct)) : 100/sorted.length;
+  const peakUnits = Math.round(demand * peakPct / 100);
+  panel.innerHTML = sorted.map((s, i) => {
+    const pct = (s.capPerHour / peakUnits) * 100;
+    const isRealBottle = bottleneckIds.includes(s.id);
+    let accentColor,barColor,rankBg,rankColor,cardBg,cardBorder,statusLabel,glowColor;
+    if (pct<=105){accentColor='#ef4444';barColor='#ef4444';rankBg='rgba(239,68,68,0.2)';rankColor='#ef4444';cardBg='rgba(239,68,68,0.07)';cardBorder='rgba(239,68,68,0.45)';statusLabel='CUELLO';glowColor='rgba(239,68,68,0.15)';}
+    else if(pct<=115){accentColor='#f59e0b';barColor='#f59e0b';rankBg='rgba(245,158,11,0.2)';rankColor='#f59e0b';cardBg='rgba(245,158,11,0.06)';cardBorder='rgba(245,158,11,0.4)';statusLabel='ALERTA';glowColor='rgba(245,158,11,0.12)';}
+    else{accentColor='#10b981';barColor='#10b981';rankBg='rgba(16,185,129,0.15)';rankColor='#10b981';cardBg='rgba(16,185,129,0.05)';cardBorder='rgba(16,185,129,0.3)';statusLabel='OK';glowColor='rgba(16,185,129,0.1)';}
+    const barWidth=Math.min(pct,150);
+    const limitante=isRealBottle?`<div class="bn-limitante-badge" style="background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#ef4444;">⚠ LIMITANTE</div>`:'';
+    return `<div class="bn-item" style="border-color:${cardBorder};background:${cardBg};box-shadow:0 2px 12px ${glowColor}">
+      <div class="bn-item-accent" style="background:linear-gradient(90deg,${accentColor},${accentColor}88)"></div>
+      <div class="bn-item-body">
+        <div class="bn-item-top">
+          <div class="bn-icon-name"><span class="bn-icon">${s.icon}</span><div class="bn-info"><div class="bn-name" style="color:${accentColor}">${s.name}</div><div class="bn-stat">${s.capPerHour} u/h · ${s.units}u</div></div></div>
+          <div class="bn-rank" style="background:${rankBg};color:${rankColor}">#${i+1} ${statusLabel}</div>
+        </div>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;">
+          <div><div class="bn-pct-big" style="color:${accentColor}">${pct.toFixed(0)}<span style="font-size:12px;font-weight:600;">%</span></div><div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:1px;">vs hora pico</div></div>
+          ${limitante}
+        </div>
+        <div class="bn-bar-row"><div class="bn-bar-wrap"><div class="bn-bar" style="width:${barWidth}%;background:linear-gradient(90deg,${accentColor},${accentColor}aa)"></div></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStation(id, field, val) {
+  const s = stations.find(s=>s.id===id);
+  if(s) { s[field]=parseFloat(val)||1; simulate(); }
+}
+function changeUnits(id, delta) {
+  const s = stations.find(s=>s.id===id);
+  if(s) { s.units=Math.max(1,Math.min(10,s.units+delta)); simulate(); }
+}
+
+function addLog(hrs, demand, cap, bottle, met, cycle, sorted) {
+  const log = document.getElementById('logBody');
+  const t = new Date().toTimeString().slice(0,5);
+  const peakPct = hourDist.length ? Math.max(...hourDist.map(d=>d.pct)) : 0;
+  const peakUnits = Math.round(demand * peakPct / 100);
+  const entries = [
+    { t, msg:`Simulación: turno ${hrs}h, demanda ${demand} u (hora pico: ~${peakUnits} u)`, cls:'info' },
+    { t, msg:`Cap. cuello de botella: ${bottle.capPerHour} u/hora → ${cap} u/día`, cls: met?'success':'warn' },
+    { t, msg:`Ciclo total proceso: ${cycle} min`, cls:'' },
+    { t, msg: met?`✓ Demanda cubierta`:`✗ DÉFICIT ${demand-cap} u/día — Cuello: ${bottle.icon} ${bottle.name}`, cls:met?'success':'danger' }
+  ];
+  entries.forEach(e => {
+    const div=document.createElement('div'); div.className='log-entry';
+    div.innerHTML=`<span class="log-time">${e.t}</span><span class="log-msg ${e.cls}">${e.msg}</span>`;
+    log.appendChild(div);
+  });
+  log.scrollTop=log.scrollHeight;
+}
+
+function resetAll() {
+  stations = JSON.parse(JSON.stringify(BASE_STATIONS)).map(s=>({...s,time:s.baseTime}));
+  document.getElementById('sliderHrs').value=10;
+  document.getElementById('sliderDemand').value=100;
+  document.getElementById('lblHrs').textContent='10h';
+  document.getElementById('lblDemand').textContent='100 trabajos';
+  document.getElementById('startHour').value=7;
+  buildHourDist();
+  loadDefaultDist();
+  showToast('↩ Valores restaurados','info');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Floor / Animated simulation (Tab 3)
+// ─────────────────────────────────────────────────────────────
+let floorRunning = false;
+let floorTimer = null;
+let currentHourIdx = 0;
+let totalIntake = 0;
+let totalProcessed = 0;
+let stationProcessed = {}; // id -> cumulative processed
+let alarmShown = {}; // to avoid repeated alarms per station per hour
+let simSpeed = 1;
+let alarmsTriggered = [];
+
+function setSpeed(s, btn) {
+  simSpeed = s;
+  document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function buildFloorGrid() {
+  const grid = document.getElementById('floorGrid');
+  grid.innerHTML = '';
+  stations.forEach(s => {
+    stationProcessed[s.id] = 0;
+    const box = document.createElement('div');
+    box.className = 'floor-station';
+    box.id = 'fs-' + s.id;
+    box.innerHTML = `
+      <div class="overload-badge" id="ob-${s.id}">⚠ EXCEDIDA</div>
+      <div class="floor-station-icon">${s.icon}</div>
+      <div class="floor-station-name">${s.name}</div>
+      <div class="floor-station-detail">${s.detail}</div>
+      <div class="floor-station-cap-row">
+        <div>
+          <div class="floor-station-processed" id="fsp-${s.id}">0</div>
+          <div class="floor-station-cap-label">procesadas</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted);" id="fscap-${s.id}">— u/h</div>
+          <div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">capacidad</div>
+        </div>
+      </div>
+      <div class="floor-station-bar-bg">
+        <div class="floor-station-bar" id="fsbar-${s.id}" style="width:0%"></div>
+      </div>
+      <div class="floor-station-hour-units">
+        <span id="fshu-${s.id}" style="color:var(--muted);">Esta hora: 0 u</span>
+        <span id="fsdef-${s.id}"></span>
+      </div>
+    `;
+    grid.appendChild(box);
+  });
+}
+
+function resetFloorSim() {
+  floorRunning = false;
+  clearTimeout(floorTimer);
+  currentHourIdx = 0;
+  totalIntake = 0;
+  totalProcessed = 0;
+  stationProcessed = {};
+  alarmShown = {};
+  alarmsTriggered = [];
+  document.getElementById('floorPlayBtn').textContent = '▶ INICIAR SIMULACIÓN';
+  document.getElementById('floorClock').textContent = getHourLabel(0);
+  document.getElementById('floorHourNum').textContent = `1 / ${hourDist.length}`;
+  document.getElementById('intakeBoxNum').textContent = '0';
+  document.getElementById('floorProgressBar').style.width = '0%';
+  document.getElementById('floorFinalNum').textContent = '0';
+  // Reset final box color
+  const finalBoxReset = document.getElementById('floorFinalBox');
+  if (finalBoxReset) finalBoxReset.classList.remove('result-ok','result-fail');
+  const finalLabelReset = finalBoxReset ? finalBoxReset.querySelector('.floor-final-label') : null;
+  if (finalLabelReset) finalLabelReset.classList.remove('result-ok','result-fail');
+  const finalNumReset = document.getElementById('floorFinalNum');
+  if (finalNumReset) finalNumReset.classList.remove('result-ok','result-fail');
+  // Hide completion popup
+  document.getElementById('completionOverlay').classList.remove('open');
+  document.getElementById('completionPopup').classList.remove('open');
+  buildFloorGrid();
+  // Update cap labels
+  stations.forEach(s => {
+    const capH = (s.excludeFromBN || s.excludeFromCap) ? '∞' : Math.floor(60/(s.time/s.units));
+    const el = document.getElementById('fscap-'+s.id);
+    if (el) el.textContent = capH + ' u/h';
+  });
+}
+
+function getHourLabel(idx) {
+  if (!hourDist[idx]) return '—';
+  return hourDist[idx].label.split(' ')[0];
+}
+
+function toggleFloorSim() {
+  if (!hourDist.length) { showToast('⚠️ Configura la distribución horaria primero','warn'); return; }
+  if (currentHourIdx >= hourDist.length) { resetFloorSim(); return; }
+  floorRunning = !floorRunning;
+  document.getElementById('floorPlayBtn').textContent = floorRunning ? '⏸ PAUSAR' : '▶ CONTINUAR';
+  if (floorRunning) advanceHour();
+}
+
+function advanceHour() {
+  if (!floorRunning || currentHourIdx >= hourDist.length) {
+    floorRunning = false;
+    document.getElementById('floorPlayBtn').textContent = '✓ COMPLETADO — Reset';
+    return;
+  }
+  const demand = parseInt(document.getElementById('sliderDemand').value);
+  const d = hourDist[currentHourIdx];
+  const incoming = Math.round(demand * d.pct / 100);
+  totalIntake += incoming;
+
+  document.getElementById('floorClock').textContent = getHourLabel(currentHourIdx);
+  document.getElementById('floorHourNum').textContent = `${currentHourIdx+1} / ${hourDist.length}`;
+  document.getElementById('intakeBoxNum').textContent = totalIntake.toLocaleString();
+  // Pulse intake box
+  const intakeBox = document.querySelector('.intake-box');
+  if (intakeBox) { intakeBox.classList.remove('io-pulse'); void intakeBox.offsetWidth; intakeBox.classList.add('io-pulse'); }
+  const pct = ((currentHourIdx+1)/hourDist.length)*100;
+  document.getElementById('floorProgressBar').style.width = pct + '%';
+
+  let hourProcessed = incoming;
+  // Process through stations
+  stations.forEach(s => {
+    const capH = (s.excludeFromBN || s.excludeFromCap) ? Infinity : Math.floor(60/(s.time/s.units));
+    const thisHour = Math.min(hourProcessed, capH === Infinity ? hourProcessed : capH);
+    const overflow = hourProcessed > capH;
+    stationProcessed[s.id] = (stationProcessed[s.id]||0) + thisHour;
+
+    const el = document.getElementById('fsp-'+s.id);
+    const bar = document.getElementById('fsbar-'+s.id);
+    const hu = document.getElementById('fshu-'+s.id);
+    const def = document.getElementById('fsdef-'+s.id);
+    const box = document.getElementById('fs-'+s.id);
+
+    if (el) el.textContent = stationProcessed[s.id].toLocaleString();
+    if (hu) hu.textContent = `Esta hora: ${thisHour} u`;
+
+    // Bar width relative to capH (or incoming if excluded)
+    const barPct = capH===Infinity ? Math.min(thisHour/incoming*100||0, 100) : Math.min(thisHour/capH*100, 100);
+    if (bar) {
+      bar.style.width = barPct + '%';
+      bar.className = 'floor-station-bar';
+      if (overflow && capH!==Infinity) bar.classList.add('overload-bar');
+      else if (barPct > 80 && capH!==Infinity) bar.classList.add('warn-bar');
+    }
+
+    if (box) {
+      box.classList.remove('overload-station','active-station');
+      if (overflow && capH!==Infinity) {
+        box.classList.add('overload-station');
+        const elPr = document.getElementById('fsp-'+s.id);
+        if (elPr) elPr.className = 'floor-station-processed overload';
+        if (def) def.innerHTML = `<span style="color:var(--danger);">−${hourProcessed-capH} ⚠</span>`;
+        // Trigger alarm once per station per hour
+        const alarmKey = `${s.id}-${currentHourIdx}`;
+        if (!alarmShown[alarmKey]) {
+          alarmShown[alarmKey] = true;
+          alarmsTriggered.push({station: s.name, icon: s.icon, overflow: hourProcessed-capH, hour: d.label});
+        }
+      } else {
+        box.classList.add('active-station');
+        const elPr = document.getElementById('fsp-'+s.id);
+        if (elPr) elPr.className = 'floor-station-processed';
+        if (def) def.innerHTML = `<span style="color:var(--accent3);">✓</span>`;
+      }
+    }
+  });
+
+  // Total output = what passes through last station
+  const lastStation = stations[stations.length-1];
+  const lastCap = (lastStation.excludeFromBN || lastStation.excludeFromCap) ? Infinity : Math.floor(60/(lastStation.time/lastStation.units));
+  const finalThisHour = Math.min(incoming, lastCap===Infinity?incoming:lastCap);
+  totalProcessed += finalThisHour;
+  document.getElementById('floorFinalNum').textContent = totalProcessed.toLocaleString();
+  // Pulse final box
+  const finalBox = document.getElementById('floorFinalBox');
+  if (finalBox) { finalBox.classList.remove('io-pulse'); void finalBox.offsetWidth; finalBox.classList.add('io-pulse'); }
+
+  currentHourIdx++;
+
+  // Show alarms after a slight delay
+  if (alarmsTriggered.length > 0) {
+    const a = alarmsTriggered.pop();
+    triggerAlarm(a);
+    return; // pause until dismissed
+  }
+
+  // Check if simulation just finished
+  if (currentHourIdx >= hourDist.length) {
+    floorRunning = false;
+    document.getElementById('floorPlayBtn').textContent = '✓ COMPLETADO — Reset';
+    // Update total-processed box color
+    const demand = parseInt(document.getElementById('sliderDemand').value);
+    const allProcessed = totalProcessed >= totalIntake;
+    const finalBoxEl = document.getElementById('floorFinalBox');
+    const finalLabelEl = finalBoxEl ? finalBoxEl.querySelector('.floor-final-label') : null;
+    const finalNumEl = document.getElementById('floorFinalNum');
+    if (finalBoxEl) {
+      finalBoxEl.classList.remove('result-ok','result-fail');
+      finalBoxEl.classList.add(allProcessed ? 'result-ok' : 'result-fail');
+    }
+    if (finalLabelEl) {
+      finalLabelEl.classList.remove('result-ok','result-fail');
+      finalLabelEl.classList.add(allProcessed ? 'result-ok' : 'result-fail');
+    }
+    if (finalNumEl) {
+      finalNumEl.classList.remove('result-ok','result-fail');
+      finalNumEl.classList.add(allProcessed ? 'result-ok' : 'result-fail');
+    }
+    // Show completion popup after a short delay
+    setTimeout(() => showCompletionPopup(allProcessed, totalProcessed, totalIntake), 600);
+    return;
+  }
+
+  const delay = Math.max(400, 2000 / simSpeed);
+  floorTimer = setTimeout(advanceHour, delay);
+}
+
+function showCompletionPopup(success, processed, intake) {
+  const overlay = document.getElementById('completionOverlay');
+  const popup   = document.getElementById('completionPopup');
+  const icon    = document.getElementById('completionIcon');
+  const title   = document.getElementById('completionTitle');
+  const msg     = document.getElementById('completionMsg');
+  const deficit = intake - processed;
+
+  overlay.className = 'completion-overlay open ' + (success ? 'success' : 'failure');
+  popup.className   = 'completion-popup open '   + (success ? 'success' : 'failure');
+
+  if (success) {
+    icon.textContent  = '✅';
+    title.textContent = '¡Turno completado con éxito!';
+    msg.innerHTML = `Se procesaron las <strong>${processed}</strong> unidades entrantes del turno.<br>Todas las unidades fueron atendidas dentro de la capacidad disponible.`;
+  } else {
+    icon.textContent  = '🚨';
+    title.textContent = 'Turno finalizado con déficit';
+    msg.innerHTML = `Solo se procesaron <strong>${processed}</strong> de <strong>${intake}</strong> unidades entrantes.<br>Déficit: <strong>${deficit} unidades</strong> no pudieron ser procesadas en el turno.`;
+  }
+}
+
+function dismissCompletion() {
+  document.getElementById('completionOverlay').classList.remove('open');
+  document.getElementById('completionPopup').classList.remove('open');
+}
+
+function triggerAlarm(a) {
+  floorRunning = false;
+  document.getElementById('floorPlayBtn').textContent = '▶ CONTINUAR';
+  document.getElementById('alarmMsg').innerHTML =
+    `<strong>${a.icon} ${a.station}</strong> superó su capacidad horaria.<br>` +
+    `Franja: ${a.hour}<br>` +
+    `Exceso: <strong>${a.overflow} unidades</strong> no pueden ser procesadas.`;
+  document.getElementById('alarmModal').classList.add('open');
+  // Play audio alarm via Web Audio API
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    for (let i=0;i<3;i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + i*0.4);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.4 + 0.35);
+      osc.start(ctx.currentTime + i*0.4);
+      osc.stop(ctx.currentTime + i*0.4 + 0.35);
+    }
+  } catch(e) {}
+}
+
+function dismissAlarm() {
+  document.getElementById('alarmModal').classList.remove('open');
+  if (alarmsTriggered.length > 0) {
+    const a = alarmsTriggered.pop();
+    setTimeout(()=>triggerAlarm(a), 300);
+    return;
+  }
+  // Resume
+  floorRunning = true;
+  document.getElementById('floorPlayBtn').textContent = '⏸ PAUSAR';
+  const delay = Math.max(400, 2000/simSpeed);
+  floorTimer = setTimeout(advanceHour, delay);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Tabs
+// ─────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'floorTab') {
+    buildFloorGrid();
+    // Sync hour display with current distribution length
+    document.getElementById('floorHourNum').textContent = `1 / ${hourDist.length || parseInt(document.getElementById('sliderHrs').value)}`;
+    document.getElementById('floorClock').textContent = getHourLabel(0) || (String(parseInt(document.getElementById('startHour').value)||7).padStart(2,'0') + ':00');
+    stations.forEach(s => {
+      const capH = (s.excludeFromBN||s.excludeFromCap) ? '∞' : Math.floor(60/(s.time/s.units));
+      const el = document.getElementById('fscap-'+s.id);
+      if(el) el.textContent = capH + ' u/h';
+    });
+  }
+  if (id === 'distTab') renderDistGrid();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Share modal
+// ─────────────────────────────────────────────────────────────
+let shareMode = 'readonly';
+function openShareModal() {
+  shareMode='readonly';
+  document.getElementById('optReadonly').classList.add('selected');
+  document.getElementById('optEditable').classList.remove('selected');
+  document.getElementById('shareModal').classList.add('open');
+}
+function closeShareModal() { document.getElementById('shareModal').classList.remove('open'); }
+function selectShareMode(mode) {
+  shareMode=mode;
+  document.getElementById('optReadonly').classList.toggle('selected',mode==='readonly');
+  document.getElementById('optEditable').classList.toggle('selected',mode==='editable');
+}
+function buildShareUrl() {
+  const hrs=document.getElementById('sliderHrs').value;
+  const demand=document.getElementById('sliderDemand').value;
+  const stData=stations.map(s=>`${s.id}:${s.time}:${s.units}`).join(',');
+  const distData=hourDist.map(d=>d.pct.toFixed(4)).join(',');
+  const params=new URLSearchParams({hrs,demand,stations:stData,dist:distData,mode:shareMode});
+  return window.location.href.split('?')[0]+'?'+params.toString();
+}
+
+function shareVia(channel) {
+  const url = buildShareUrl();
+  const modeLabel = shareMode === 'readonly' ? 'solo lectura' : 'editable';
+  const msgText = `Te comparto el simulador de producción OPAS (${modeLabel}):\n${url}`;
+
+  if (channel === 'copy') {
+    navigator.clipboard.writeText(url).then(() => {
+      closeShareModal();
+      showToast(`✓ Enlace copiado (${modeLabel})`, 'info');
+    }).catch(() => { prompt('Copia este enlace:', url); closeShareModal(); });
+
+  } else if (channel === 'whatsapp') {
+    const waUrl = 'https://wa.me/?text=' + encodeURIComponent(msgText);
+    window.open(waUrl, '_blank');
+    closeShareModal();
+
+  } else if (channel === 'outlook') {
+    const subject = encodeURIComponent('Simulador de Producción OPAS — ' + (shareMode === 'readonly' ? 'Solo Lectura' : 'Editable'));
+    const body = encodeURIComponent(
+      'Hola,\n\n' +
+      'Te comparto el enlace al Simulador de Producción de Lentes OPAS (' + modeLabel + ').\n\n' +
+      'Enlace: ' + url + '\n\n' +
+      (shareMode === 'readonly'
+        ? 'Puedes explorar el modelo y ver todas las simulaciones, pero los parámetros están bloqueados.\n'
+        : 'Puedes modificar los parámetros, ajustar estaciones y correr tus propias simulaciones.\n') +
+      '\nSaludos.'
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    closeShareModal();
+  }
+}
+
+function confirmShare() {
+  shareVia('copy');
+}
+function loadSharedState() {
+  const params=new URLSearchParams(window.location.search);
+  if(!params.has('stations')) return;
+  try {
+    const hrs=parseInt(params.get('hrs'))||8;
+    const demand=parseInt(params.get('demand'))||50;
+    const mode=params.get('mode')||'readonly';
+    params.get('stations').split(',').forEach(chunk=>{
+      const [id,time,units]=chunk.split(':').map(Number);
+      const st=stations.find(s=>s.id===id);
+      if(st){st.time=time;st.units=units;}
+    });
+    if (params.has('dist')) {
+      const pcts=params.get('dist').split(',').map(Number);
+      pcts.forEach((p,i)=>{ if(hourDist[i]) hourDist[i].pct=p; });
+    }
+    document.getElementById('sliderHrs').value=hrs;
+    document.getElementById('sliderDemand').value=demand;
+    document.getElementById('lblHrs').textContent=hrs+'h';
+    document.getElementById('lblDemand').textContent=demand+' trabajos';
+    if(mode==='readonly'){
+      document.querySelectorAll('.time-input').forEach(el=>el.disabled=true);
+      document.querySelectorAll('.unit-btn').forEach(el=>el.disabled=true);
+      document.querySelectorAll('input[type=range]').forEach(el=>el.disabled=true);
+      document.getElementById('btnSimular').disabled=true;
+      document.getElementById('btnReset').style.display='none';
+      showToast('👁️ Modelo en modo solo lectura','info');
+    }
+  } catch(e){ console.warn('Could not load shared state',e); }
+}
+document.getElementById('shareModal').addEventListener('click',function(e){if(e.target===this)closeShareModal();});
+
+// ─────────────────────────────────────────────────────────────
+//  Toast
+// ─────────────────────────────────────────────────────────────
+function showToast(msg, type) {
+  const wrap=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className='toast toast-'+type; t.textContent=msg;
+  wrap.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),400); },3500);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Init
+// ─────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  buildHourDist();
+  loadDefaultDist();
+  renderDistGrid();
+  loadSharedState();
+  simulate();
+  buildFloorGrid();
+  // Init floor hour display with correct value from parameters
+  document.getElementById('floorHourNum').textContent = `1 / ${hourDist.length}`;
+  stations.forEach(s => {
+    const capH=(s.excludeFromBN||s.excludeFromCap)?'∞':Math.floor(60/(s.time/s.units));
+    const el=document.getElementById('fscap-'+s.id);
+    if(el) el.textContent=capH+' u/h';
+  });
+});
+</script>
+<footer style="position:relative;z-index:10;border-top:1px solid var(--border);background:rgba(10,14,26,0.85);backdrop-filter:blur(12px);padding:14px 32px;text-align:center;">
+  <span style="font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;">
+    © 2026 OPAS C.A. · Todos los derechos reservados · Simulador de Producción de Lentes
+  </span>
+</footer>
+
+</body>
+</html>
